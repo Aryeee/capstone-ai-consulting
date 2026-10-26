@@ -50,6 +50,11 @@ st.markdown(
     .card { border:1px solid var(--line); border-radius:13px; padding:1.35rem; background:#fff; margin:0 0 1rem; box-shadow:0 8px 30px rgba(23,34,30,.045); }.recommendation { border-left:4px solid var(--accent); background:#f7fcf9; }.recommendation h2 { margin:.3rem 0 .7rem; }.muted { color:var(--muted); font-size:.85rem; line-height:1.6; }
     [data-testid="stTabs"] { margin-top:1.4rem; }.stTabs [data-baseweb="tab-list"] { gap:1.55rem; border-bottom:1px solid var(--line); }.stTabs [data-baseweb="tab"] { color:var(--muted); font-size:.82rem; padding:0 0 12px; }.stTabs [aria-selected="true"] { color:var(--accent-dark); font-weight:700; }.stTabs [data-baseweb="tab-highlight"] { background:var(--accent); height:2px; }
     [data-testid="stTextArea"] textarea, [data-baseweb="select"] > div { border-color:var(--line); border-radius:8px; background:#fff; }.stTextArea textarea:focus { border-color:#88c9ae; box-shadow:0 0 0 3px rgba(15,159,120,.08); }
+    [data-testid="stSelectbox"] [data-baseweb="select"] * { color:var(--ink)!important; }
+    [data-testid="stSelectbox"] [data-baseweb="select"] input { color:var(--ink)!important; -webkit-text-fill-color:var(--ink)!important; }
+    [data-baseweb="popover"] [role="listbox"], [data-baseweb="popover"] [role="option"] { background:#fff!important; color:var(--ink)!important; }
+    [data-baseweb="popover"] [role="option"] * { color:var(--ink)!important; }
+    [data-baseweb="popover"] [role="option"]:hover, [data-baseweb="popover"] [role="option"][aria-selected="true"] { background:var(--soft)!important; color:var(--accent-dark)!important; }
     label p { color:var(--muted)!important; font-size:.75rem!important; }.stSlider [data-baseweb="slider"] { margin-top:.2rem; }
     div.stButton > button { border-radius:8px; border:1px solid var(--line); min-height:2.45rem; font-weight:600; }.stButton > button[kind="primary"] { background:#0f9f78; border-color:#0f9f78; color:#fff; box-shadow:0 5px 14px rgba(15,159,120,.18); }.stButton > button[kind="primary"]:hover { background:#086b52; border-color:#086b52; }
     [data-testid="stMetric"] { background:#fff; border:1px solid var(--line); border-radius:9px; padding:.75rem 1rem; }.stMetric label { color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; }.stMetric [data-testid="stMetricValue"] { font-size:1.15rem; }
