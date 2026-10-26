@@ -87,7 +87,17 @@ st.markdown(
     [data-testid="stNumberInput"] label, [data-testid="stSelectbox"] label { color:#d9e9e1!important; }
     label p { color:var(--muted)!important; font-size:.75rem!important; }.stSlider [data-baseweb="slider"] { margin-top:.2rem; }
     div.stButton > button { border-radius:8px; border:1px solid var(--line); min-height:2.45rem; font-weight:600; }.stButton > button[kind="primary"] { background:#0f9f78; border-color:#0f9f78; color:#fff; box-shadow:0 5px 14px rgba(15,159,120,.18); }.stButton > button[kind="primary"]:hover { background:#086b52; border-color:#086b52; }
-    [data-testid="stMetric"] { background:#fff; border:1px solid var(--line); border-radius:9px; padding:.75rem 1rem; }.stMetric label { color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; }.stMetric [data-testid="stMetricValue"] { font-size:1.15rem; }
+    /* Results and outcome cards use the same dark surface as the form fields. */
+    [data-testid="stMetric"] { background:#1d3029!important; border:1px solid #38544a!important; border-radius:9px; padding:.75rem 1rem; }
+    .stMetric label { color:#a8c0b5!important; font:10px 'DM Mono',monospace; text-transform:uppercase; }
+    .stMetric [data-testid="stMetricValue"] { color:#edf8f2!important; font-size:1.15rem; }
+    .stMetric [data-testid="stMetricDelta"] { color:#9ce1c3!important; }
+    [data-testid="stExpander"] { background:#1d3029!important; border-color:#38544a!important; }
+    [data-testid="stExpander"] summary, [data-testid="stExpander"] summary p,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"], [data-testid="stExpander"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stExpander"] [data-testid="stMarkdownContainer"] strong { color:#edf8f2!important; }
+    [data-testid="stExpander"] [data-testid="stCaptionContainer"] { color:#a8c0b5!important; }
+    [data-testid="stExpander"] hr { border-color:#38544a!important; }
     [data-testid="stExpander"] { border:1px solid var(--line); border-radius:9px; background:#fff; margin:.55rem 0; }.streamlit-expanderHeader { font-size:.84rem; }
     [data-testid="stDataFrame"] { border:1px solid var(--line); border-radius:10px; overflow:hidden; }.status { font:10px 'DM Mono',monospace; color:#0f9f78; }
     @media (max-width:700px) { .block-container { padding:0 1rem 3rem; }.topbar { margin-bottom:2rem; }.top-status { display:none; } h1 { font-size:2.25rem!important; } }
