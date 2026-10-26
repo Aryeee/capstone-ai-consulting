@@ -36,7 +36,9 @@ st.markdown(
     html, body, [class*="css"] { font-family:'DM Sans',sans-serif; color:var(--ink); }
     body { background:var(--paper); }
     #MainMenu, footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] { display:none!important; }
-    .block-container { max-width:1240px; padding:0 2.6rem 4rem; }
+    [data-testid="stHeader"] { background:transparent!important; height:0!important; }
+    [data-testid="stToolbar"] { display:none!important; }
+    .block-container { max-width:1240px; padding:2rem 2.6rem 4rem; }
     .topbar { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 0 1.1rem; border-bottom:1px solid var(--line); margin-bottom:2.8rem; }
     .brand { display:flex; align-items:center; gap:.7rem; }
     .brand-mark { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; color:#153d31; background:#a6e2c9; font-size:19px; }
@@ -127,17 +129,14 @@ options = get_filter_options(cases)
 
 st.markdown('<div class="topbar"><div class="brand"><div class="brand-mark">✦</div><div><p class="brand-name">Strategy<span>OS</span></p><p class="brand-sub">AI consulting workspace</p></div></div><div class="top-status"><span class="status-dot"></span>Local & private · ' + str(len(cases)) + ' cases</div></div>', unsafe_allow_html=True)
 
-with st.expander("Workspace controls", expanded=False):
-    control_left, control_right = st.columns([3, 1])
-    with control_left:
-        st.caption("Your query is embedded and matched against the local case library. No business context is sent to a remote service.")
-    with control_right:
-        if st.button("Rebuild case library", use_container_width=True):
-            with st.spinner("Rebuilding index…"):
-                build_all()
-                st.cache_resource.clear()
-            st.success("Case library rebuilt.")
-            st.rerun()
+with st.expander("System settings", expanded=False):
+    st.caption("Your query is embedded and matched against the local case library. No business context is sent to a remote service.")
+    if st.button("Rebuild case library", use_container_width=True):
+        with st.spinner("Rebuilding index…"):
+            build_all()
+            st.cache_resource.clear()
+        st.success("Case library rebuilt.")
+        st.rerun()
 
 st.markdown('<div class="hero"><div class="eyebrow">CASE-BASED REASONING</div><h1>Turn a complex problem<br><em>into a clear next move.</em></h1><p>Describe the business challenge. StrategyOS finds analogous cases, weighs their outcomes, and makes the reasoning visible.</p></div>', unsafe_allow_html=True)
 
