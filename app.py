@@ -47,7 +47,9 @@ st.markdown(
     h1,h2,h3,h4 { letter-spacing:-.04em; } h1 { font-size:2.8rem!important; }
     .eyebrow { color:var(--accent); font:10px 'DM Mono',monospace; letter-spacing:1.1px; text-transform:uppercase; }
     .hero { padding:0 0 2rem; border-bottom:1px solid var(--line); margin-bottom:2rem; }.hero h1 em { color:var(--accent); font-family:'Playfair Display',serif; }.hero p { max-width:650px; color:var(--muted); line-height:1.65; }
-    .card { border:1px solid var(--line); border-radius:13px; padding:1.35rem; background:#fff; margin:0 0 1rem; box-shadow:0 8px 30px rgba(23,34,30,.045); }.recommendation { border-left:4px solid var(--accent); background:#f7fcf9; }.recommendation h2 { margin:.3rem 0 .7rem; }.muted { color:var(--muted); font-size:.85rem; line-height:1.6; }
+    .card { border:1px solid #38544a; border-radius:13px; padding:1.35rem; background:#1d3029!important; color:#edf8f2!important; margin:0 0 1rem; box-shadow:0 8px 30px rgba(0,0,0,.18); }.card h2, .card h3, .card strong { color:#edf8f2!important; }.card .eyebrow { color:#73d4aa!important; }.recommendation { border-left:4px solid var(--accent); background:#1d3029!important; }.recommendation h2 { margin:.3rem 0 .7rem; }.muted { color:#b5c9bf!important; font-size:.85rem; line-height:1.6; }
+    .evidence-header { margin-bottom:.4rem!important; }.evidence-header h3 { color:#edf8f2!important; margin:.35rem 0 0; }.card + [data-testid="stPlotlyChart"] { background:#1d3029; border:1px solid #38544a; border-radius:10px; padding:.4rem; }
+    .card p, .card [data-testid="stMarkdownContainer"] p { color:#b5c9bf!important; }
     [data-testid="stTabs"] { margin-top:1.4rem; }.stTabs [data-baseweb="tab-list"] { gap:1.55rem; border-bottom:1px solid var(--line); }.stTabs [data-baseweb="tab"] { color:var(--muted); font-size:.82rem; padding:0 0 12px; }.stTabs [aria-selected="true"] { color:var(--accent-dark); font-weight:700; }.stTabs [data-baseweb="tab-highlight"] { background:var(--accent); height:2px; }
     /* Dark field treatment: keep every editable/control surface readable. */
     [data-testid="stTextArea"] textarea,
@@ -218,7 +220,7 @@ with consult_tab:
             st.plotly_chart(gauge, use_container_width=True, config={"displayModeBar": False})
         st.caption(f"{len(retrieved)} cases · {analysis['elapsed']}ms")
 
-        st.markdown('<div class="card"><div class="eyebrow">EVIDENCE MAP</div><h3>Why these cases surfaced</h3></div>', unsafe_allow_html=True)
+        st.markdown('<div class="card evidence-header"><div class="eyebrow">EVIDENCE MAP</div><h3>Why these cases surfaced</h3></div>', unsafe_allow_html=True)
         sim_df = pd.DataFrame({"Case": [c.title for c, _ in retrieved], "Similarity": [round(score * 100, 1) for _, score in retrieved]})
         fig = go.Figure(go.Bar(x=sim_df["Similarity"], y=sim_df["Case"], orientation="h", marker_color="#0f9f78", text=sim_df["Similarity"].map(lambda x: f"{x}%"), textposition="auto"))
         fig.update_layout(height=max(220, 55 * len(retrieved)), margin=dict(l=10, r=20, t=10, b=20), yaxis={"autorange": "reversed"}, xaxis_title="Similarity")
