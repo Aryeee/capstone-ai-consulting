@@ -26,31 +26,36 @@ from src.refined_retrieval import retrieve_counter_examples, retrieve_related_ca
 
 st.set_page_config(page_title="StrategyOS — AI Consulting Workspace", page_icon="✦", layout="wide")
 
-# Visual system shared with the Vercel dashboard.
+# StrategyOS visual system: a quiet, editorial workspace instead of the default
+# Streamlit chrome. The same palette is used by the Vercel dashboard.
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
-    :root { --ink:#17221e; --muted:#718078; --line:#e3e9e5; --accent:#0f9f78; --soft:#eef4f0; }
+    :root { --ink:#17221e; --muted:#718078; --line:#dfe8e2; --accent:#0f9f78; --accent-dark:#086b52; --soft:#eef5f0; --paper:#f7f9f7; }
     html, body, [class*="css"] { font-family:'DM Sans',sans-serif; color:var(--ink); }
-    .block-container { max-width:1180px; padding-top:2.2rem; }
-    [data-testid="stSidebar"] { background:#16231f; }
-    [data-testid="stSidebar"] * { color:#dbe9e2; }
-    [data-testid="stSidebar"] .stCaption { color:#81948b; }
-    h1,h2,h3,h4 { letter-spacing:-.04em; }
-    h1 { font-size:2.8rem!important; }
+    body { background:var(--paper); }
+    #MainMenu, footer, [data-testid="stSidebar"], [data-testid="collapsedControl"] { display:none!important; }
+    .block-container { max-width:1240px; padding:0 2.6rem 4rem; }
+    .topbar { display:flex; justify-content:space-between; align-items:center; padding:1.25rem 0 1.1rem; border-bottom:1px solid var(--line); margin-bottom:2.8rem; }
+    .brand { display:flex; align-items:center; gap:.7rem; }
+    .brand-mark { display:grid; place-items:center; width:32px; height:32px; border-radius:9px; color:#153d31; background:#a6e2c9; font-size:19px; }
+    .brand-name { margin:0; font-weight:700; letter-spacing:-.04em; font-size:1.08rem; }.brand-name span { color:var(--accent); font-weight:500; }
+    .brand-sub { margin:2px 0 0; color:var(--muted); font:9px 'DM Mono',monospace; letter-spacing:.4px; text-transform:uppercase; }
+    .top-status { display:flex; align-items:center; gap:.45rem; color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; letter-spacing:.5px; }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:#53bd8e; box-shadow:0 0 0 4px #e0f4e8; }
+    h1,h2,h3,h4 { letter-spacing:-.04em; } h1 { font-size:2.8rem!important; }
     .eyebrow { color:var(--accent); font:10px 'DM Mono',monospace; letter-spacing:1.1px; text-transform:uppercase; }
-    .hero { padding:1.4rem 0 2rem; border-bottom:1px solid var(--line); margin-bottom:1.8rem; }
-    .hero h1 em { color:var(--accent); font-family:'Playfair Display',serif; }
-    .hero p { max-width:650px; color:var(--muted); line-height:1.65; }
-    .card { border:1px solid var(--line); border-radius:12px; padding:1.25rem; background:#fff; margin:0 0 1rem; }
-    .recommendation { border-left:4px solid var(--accent); background:#f7fcf9; }
-    .recommendation h2 { margin:.3rem 0 .7rem; }
-    .muted { color:var(--muted); font-size:.85rem; line-height:1.6; }
-    .metric-label { color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; }
-    .case-meta { color:var(--muted); font-size:.8rem; }
-    .status { font:10px 'DM Mono',monospace; color:#80d6b1; }
-    div.stButton > button[kind="primary"] { background:#0f9f78; border-color:#0f9f78; }
+    .hero { padding:0 0 2rem; border-bottom:1px solid var(--line); margin-bottom:2rem; }.hero h1 em { color:var(--accent); font-family:'Playfair Display',serif; }.hero p { max-width:650px; color:var(--muted); line-height:1.65; }
+    .card { border:1px solid var(--line); border-radius:13px; padding:1.35rem; background:#fff; margin:0 0 1rem; box-shadow:0 8px 30px rgba(23,34,30,.045); }.recommendation { border-left:4px solid var(--accent); background:#f7fcf9; }.recommendation h2 { margin:.3rem 0 .7rem; }.muted { color:var(--muted); font-size:.85rem; line-height:1.6; }
+    [data-testid="stTabs"] { margin-top:1.4rem; }.stTabs [data-baseweb="tab-list"] { gap:1.55rem; border-bottom:1px solid var(--line); }.stTabs [data-baseweb="tab"] { color:var(--muted); font-size:.82rem; padding:0 0 12px; }.stTabs [aria-selected="true"] { color:var(--accent-dark); font-weight:700; }.stTabs [data-baseweb="tab-highlight"] { background:var(--accent); height:2px; }
+    [data-testid="stTextArea"] textarea, [data-baseweb="select"] > div { border-color:var(--line); border-radius:8px; background:#fff; }.stTextArea textarea:focus { border-color:#88c9ae; box-shadow:0 0 0 3px rgba(15,159,120,.08); }
+    label p { color:var(--muted)!important; font-size:.75rem!important; }.stSlider [data-baseweb="slider"] { margin-top:.2rem; }
+    div.stButton > button { border-radius:8px; border:1px solid var(--line); min-height:2.45rem; font-weight:600; }.stButton > button[kind="primary"] { background:#0f9f78; border-color:#0f9f78; color:#fff; box-shadow:0 5px 14px rgba(15,159,120,.18); }.stButton > button[kind="primary"]:hover { background:#086b52; border-color:#086b52; }
+    [data-testid="stMetric"] { background:#fff; border:1px solid var(--line); border-radius:9px; padding:.75rem 1rem; }.stMetric label { color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; }.stMetric [data-testid="stMetricValue"] { font-size:1.15rem; }
+    [data-testid="stExpander"] { border:1px solid var(--line); border-radius:9px; background:#fff; margin:.55rem 0; }.streamlit-expanderHeader { font-size:.84rem; }
+    [data-testid="stDataFrame"] { border:1px solid var(--line); border-radius:10px; overflow:hidden; }.status { font:10px 'DM Mono',monospace; color:#0f9f78; }
+    @media (max-width:700px) { .block-container { padding:0 1rem 3rem; }.topbar { margin-bottom:2rem; }.top-status { display:none; } h1 { font-size:2.25rem!important; } }
     </style>
     """,
     unsafe_allow_html=True,
@@ -73,21 +78,19 @@ index, cases = load_or_build()
 ensemble = load_ensemble_cached()
 options = get_filter_options(cases)
 
-with st.sidebar:
-    st.markdown("## ✦ StrategyOS")
-    st.caption("AI consulting workspace")
-    st.markdown("---")
-    st.markdown("**WORKSPACE**")
-    st.info("Evidence-led decisions\n\nYour query is embedded and matched against the local case library.")
-    st.markdown("---")
-    st.markdown(f'<span class="status">● LOCAL & PRIVATE</span>', unsafe_allow_html=True)
-    st.caption(f"{len(cases)} cases · all-MiniLM-L6-v2")
-    if st.button("Rebuild case library", use_container_width=True):
-        with st.spinner("Rebuilding index…"):
-            build_all()
-            st.cache_resource.clear()
-        st.success("Case library rebuilt.")
-        st.rerun()
+st.markdown('<div class="topbar"><div class="brand"><div class="brand-mark">✦</div><div><p class="brand-name">Strategy<span>OS</span></p><p class="brand-sub">AI consulting workspace</p></div></div><div class="top-status"><span class="status-dot"></span>Local & private · ' + str(len(cases)) + ' cases</div></div>', unsafe_allow_html=True)
+
+with st.expander("Workspace controls", expanded=False):
+    control_left, control_right = st.columns([3, 1])
+    with control_left:
+        st.caption("Your query is embedded and matched against the local case library. No business context is sent to a remote service.")
+    with control_right:
+        if st.button("Rebuild case library", use_container_width=True):
+            with st.spinner("Rebuilding index…"):
+                build_all()
+                st.cache_resource.clear()
+            st.success("Case library rebuilt.")
+            st.rerun()
 
 st.markdown('<div class="hero"><div class="eyebrow">CASE-BASED REASONING</div><h1>Turn a complex problem<br><em>into a clear next move.</em></h1><p>Describe the business challenge. StrategyOS finds analogous cases, weighs their outcomes, and makes the reasoning visible.</p></div>', unsafe_allow_html=True)
 
