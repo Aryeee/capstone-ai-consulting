@@ -12,6 +12,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from src.schema import Case, OutcomeMetrics
+from src.query_cache import invalidate_cache
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -113,7 +114,7 @@ def retrieve(query: str, index: faiss.IndexFlatIP, cases: list[Case],
 # One-shot: build everything from scratch
 # ---------------------------------------------------------------------------
 def build_all():
-    """Load cases → embed → build index → persist."""
+    """Load cases → embed → build index → persist → invalidate cache."""
     print("Loading cases …")
     cases = load_cases_from_json()
     print(f"  {len(cases)} cases loaded.")
@@ -127,6 +128,9 @@ def build_all():
 
     print("Saving index and metadata …")
     save_index(index, cases)
+
+    print("Invalidating query cache …")
+    invalidate_cache()
     print("Done ✓")
     return index, cases
 

@@ -1,269 +1,250 @@
-"""
-AI-Powered Strategy Consulting Assistant — Streamlit UI
+"""StrategyOS — Streamlit consultation workspace.
 
-Launch:  streamlit run app.py
+Launch with: streamlit run app.py
 """
 
 import sys
+import time
+import uuid
 from pathlib import Path
 
-import streamlit as st
+import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 
-# Ensure the project root is on sys.path so `src.*` imports work
 ROOT = Path(__file__).resolve().parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from src.case_db import (
-    build_all, load_index, retrieve, INDEX_PATH, META_PATH, get_model,
-)
-from src.predictor import predict
+from src.analytics import get_analytics_stats, log_query, store_feedback
+from src.case_db import INDEX_PATH, META_PATH, build_all, load_index
+from src.ensemble_predictor import load_ensemble, predict_ensemble
 from src.explainer import explain
+from src.hybrid_retrieval import FilterConfig, get_filter_options, retrieve_with_filters
+from src.predictor import predict
+from src.refined_retrieval import retrieve_counter_examples, retrieve_related_cases
 
-# ─────────────────────────────────────────────────────────────
-# Page config
-# ─────────────────────────────────────────────────────────────
-st.set_page_config(
-    page_title="AI Strategy Consulting Assistant",
-    page_icon="🧠",
-    layout="wide",
+st.set_page_config(page_title="StrategyOS — AI Consulting Workspace", page_icon="✦", layout="wide")
+
+# Visual system shared with the Vercel dashboard.
+st.markdown(
+    """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap');
+    :root { --ink:#17221e; --muted:#718078; --line:#e3e9e5; --accent:#0f9f78; --soft:#eef4f0; }
+    html, body, [class*="css"] { font-family:'DM Sans',sans-serif; color:var(--ink); }
+    .block-container { max-width:1180px; padding-top:2.2rem; }
+    [data-testid="stSidebar"] { background:#16231f; }
+    [data-testid="stSidebar"] * { color:#dbe9e2; }
+    [data-testid="stSidebar"] .stCaption { color:#81948b; }
+    h1,h2,h3,h4 { letter-spacing:-.04em; }
+    h1 { font-size:2.8rem!important; }
+    .eyebrow { color:var(--accent); font:10px 'DM Mono',monospace; letter-spacing:1.1px; text-transform:uppercase; }
+    .hero { padding:1.4rem 0 2rem; border-bottom:1px solid var(--line); margin-bottom:1.8rem; }
+    .hero h1 em { color:var(--accent); font-family:'Playfair Display',serif; }
+    .hero p { max-width:650px; color:var(--muted); line-height:1.65; }
+    .card { border:1px solid var(--line); border-radius:12px; padding:1.25rem; background:#fff; margin:0 0 1rem; }
+    .recommendation { border-left:4px solid var(--accent); background:#f7fcf9; }
+    .recommendation h2 { margin:.3rem 0 .7rem; }
+    .muted { color:var(--muted); font-size:.85rem; line-height:1.6; }
+    .metric-label { color:var(--muted); font:10px 'DM Mono',monospace; text-transform:uppercase; }
+    .case-meta { color:var(--muted); font-size:.8rem; }
+    .status { font:10px 'DM Mono',monospace; color:#80d6b1; }
+    div.stButton > button[kind="primary"] { background:#0f9f78; border-color:#0f9f78; }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-# ─────────────────────────────────────────────────────────────
-# Sidebar — system info & index management
-# ─────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.title("🧠 Strategy Assistant")
-    st.markdown("---")
 
-    st.markdown(
-        "**How it works:**\n"
-        "1. You describe a business problem\n"
-        "2. The system encodes it with a sentence-transformer\n"
-        "3. FAISS retrieves the most similar historical cases\n"
-        "4. A weighted-vote predictor recommends a strategy\n"
-        "5. The explainability layer shows *why*"
-    )
-
-    st.markdown("---")
-    top_k = st.slider("Number of cases to retrieve", 1, 10, 5)
-
-    st.markdown("### Optional context (improves explanations)")
-    user_industry = st.selectbox(
-        "Industry",
-        ["(any)", "Retail", "Technology", "Healthcare", "Financial Services",
-         "Manufacturing", "Energy", "Pharmaceuticals", "Automotive",
-         "Airlines", "Telecommunications", "Food & Beverage",
-         "Industrial Services", "Education", "Logistics",
-         "Media & Entertainment", "Agriculture", "Government",
-         "Construction", "Chemicals", "Mining", "Professional Services",
-         "Consumer Goods"],
-    )
-    user_size = st.selectbox("Company size", ["(any)", "Small", "Medium", "Large"])
-
-    st.markdown("---")
-    if st.button("🔄 Rebuild index from cases.json"):
-        with st.spinner("Building index …"):
-            build_all()
-        st.success("Index rebuilt ✓")
-
-
-# ─────────────────────────────────────────────────────────────
-# Load (or build) the index
-# ─────────────────────────────────────────────────────────────
-@st.cache_resource(show_spinner="Loading case index …")
+@st.cache_resource(show_spinner="Loading case library…")
 def load_or_build():
     if INDEX_PATH.exists() and META_PATH.exists():
         return load_index()
     return build_all()
 
 
+@st.cache_resource(show_spinner="Loading ensemble models…")
+def load_ensemble_cached():
+    return load_ensemble()
+
+
 index, cases = load_or_build()
+ensemble = load_ensemble_cached()
+options = get_filter_options(cases)
 
-# ─────────────────────────────────────────────────────────────
-# Main panel
-# ─────────────────────────────────────────────────────────────
-st.header("AI-Powered Strategy Consulting Assistant")
-st.caption(
-    "Describe a business problem to find relevant historical cases and "
-    "get an evidence-based strategy recommendation."
-)
-
-query = st.text_area(
-    "Describe your business problem",
-    height=150,
-    placeholder=(
-        "e.g. Our mid-sized SaaS company ($40M ARR) is seeing increasing churn "
-        "among SMB customers due to aggressive pricing from newer competitors. "
-        "We need a strategy to defend our market position while exploring "
-        "upmarket enterprise expansion …"
-    ),
-)
-
-if st.button("🔍 Analyse", type="primary") and query.strip():
-    # ---- Retrieval ----
-    with st.spinner("Embedding query & searching case database …"):
-        results = retrieve(query, index, cases, top_k=top_k)
-
-    # ---- Prediction ----
-    rec = predict(results)
-
-    # ---- Explainability ----
-    query_features: dict = {}
-    if user_industry != "(any)":
-        query_features["industry"] = user_industry
-    if user_size != "(any)":
-        query_features["company_size"] = user_size
-    expl = explain(query, query_features, results, rec)
-
-    # ============================================================
-    # Display: Recommendation summary
-    # ============================================================
+with st.sidebar:
+    st.markdown("## ✦ StrategyOS")
+    st.caption("AI consulting workspace")
     st.markdown("---")
-    st.subheader("📋 Recommendation")
-
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Recommended Strategy", rec.recommended_strategy)
-    col2.metric("Predicted Outcome", rec.predicted_outcome,
-                help=f"Confidence: {rec.outcome_confidence:.0%}")
-    col3.metric("Est. ROI Range", f"{rec.estimated_roi_low}x – {rec.estimated_roi_high}x")
-    col4.metric("Avg Time to Result", f"{rec.avg_time_to_result_months:.0f} months")
-
-    st.info(rec.supporting_rationale)
-
-    # ============================================================
-    # Display: Confidence gauge
-    # ============================================================
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=rec.strategy_confidence * 100,
-        title={"text": "Strategy Confidence"},
-        gauge={
-            "axis": {"range": [0, 100]},
-            "bar": {"color": "#2563eb"},
-            "steps": [
-                {"range": [0, 40], "color": "#fee2e2"},
-                {"range": [40, 70], "color": "#fef3c7"},
-                {"range": [70, 100], "color": "#d1fae5"},
-            ],
-        },
-    ))
-    fig_gauge.update_layout(height=250, margin=dict(t=40, b=20, l=40, r=40))
-    st.plotly_chart(fig_gauge, use_container_width=True)
-
-    # ============================================================
-    # Display: Retrieved cases
-    # ============================================================
-    st.subheader("📚 Similar Historical Cases")
-
-    for i, (case_expl) in enumerate(expl.case_explanations):
-        case = next(c for c, _ in results if c.case_id == case_expl.case_id)
-        score_pct = case_expl.similarity_score * 100
-
-        with st.expander(
-            f"**#{i+1} — {case.title}**  "
-            f"({case.industry}, {case.year}) — "
-            f"Similarity: {score_pct:.1f}%",
-            expanded=(i == 0),
-        ):
-            # Top-level case info
-            tags_col, meta_col = st.columns([3, 1])
-            with tags_col:
-                st.markdown(f"**Strategy:** {case.strategy_type}  |  "
-                            f"**Outcome:** {case.outcome}  |  "
-                            f"**ROI:** {case.outcome_metrics.roi_estimate}x  |  "
-                            f"**Timeline:** {case.outcome_metrics.time_to_result_months} months")
-                st.markdown(f"**Tags:** {', '.join(case.tags)}")
-            with meta_col:
-                st.markdown(f"**Company size:** {case.company_size}")
-                st.markdown(f"**Region:** {case.region}")
-
-            st.markdown("---")
-
-            # Problem / Actions / Outcome
-            st.markdown("**Problem:**")
-            st.write(case.problem_description)
-            st.markdown("**Key Challenges:**")
-            for ch in case.key_challenges:
-                st.markdown(f"- {ch}")
-            st.markdown("**Actions Taken:**")
-            st.write(case.actions_taken)
-            st.markdown("**Outcome:**")
-            st.write(case.outcome_description)
-
-            # Explainability per case
-            st.markdown("---")
-            st.markdown("**🔍 Why this case was retrieved:**")
-
-            if case_expl.key_overlap_phrases:
-                st.markdown(
-                    "Key overlapping concepts: "
-                    + ", ".join(f"`{p}`" for p in case_expl.key_overlap_phrases)
-                )
-            if case_expl.shared_features:
-                st.markdown(
-                    "Matching features: "
-                    + ", ".join(f"**{k}** = {v}" for k, v in case_expl.shared_features.items())
-                )
-            if case_expl.differing_features:
-                st.markdown("Differences:")
-                for feat, (qv, cv) in case_expl.differing_features.items():
-                    st.markdown(f"- *{feat}*: your context = `{qv}`, case = `{cv}`")
-
-    # ============================================================
-    # Display: Similarity bar chart
-    # ============================================================
-    st.subheader("📊 Similarity Scores")
-    labels = [f"{c.case_id}: {c.title[:40]}" for c, _ in results]
-    scores_list = [round(s * 100, 1) for _, s in results]
-    fig_bar = go.Figure(go.Bar(
-        x=scores_list,
-        y=labels,
-        orientation="h",
-        marker_color="#2563eb",
-        text=[f"{s}%" for s in scores_list],
-        textposition="auto",
-    ))
-    fig_bar.update_layout(
-        xaxis_title="Cosine Similarity (%)",
-        yaxis=dict(autorange="reversed"),
-        height=40 + 50 * len(results),
-        margin=dict(l=20, r=20, t=20, b=40),
-    )
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-    # ============================================================
-    # Display: Strategy drivers
-    # ============================================================
-    st.subheader("⚙️ What's driving the recommendation")
-
-    driver_cols = st.columns(len(expl.strategy_drivers))
-    for col, d in zip(driver_cols, expl.strategy_drivers):
-        icon = "✅" if d["direction"] == "supporting" else "🔄"
-        col.markdown(
-            f"{icon} **{d['factor']}**\n\n"
-            f"Weight: {d['weight']:.0%}  ·  Cases: {d['case_count']}"
-        )
-
-    # ============================================================
-    # Display: Outcome factor table
-    # ============================================================
-    st.subheader("📈 Outcome Evidence")
-    for of in expl.outcome_factors:
-        emoji = {"positive": "🟢", "cautionary": "🟡", "negative": "🔴"}[of["direction"]]
-        st.markdown(
-            f"{emoji} **{of['case']}** — {of['outcome']} "
-            f"(ROI {of['roi']}x, weight {of['weight']:.2f})"
-        )
-
-    # ============================================================
-    # Display: Confidence & methodology notes
-    # ============================================================
+    st.markdown("**WORKSPACE**")
+    st.info("Evidence-led decisions\n\nYour query is embedded and matched against the local case library.")
     st.markdown("---")
-    st.markdown(f"**Confidence Assessment:** {expl.confidence_note}")
-    with st.expander("ℹ️ Methodology"):
-        st.markdown(expl.methodology_note)
+    st.markdown(f'<span class="status">● LOCAL & PRIVATE</span>', unsafe_allow_html=True)
+    st.caption(f"{len(cases)} cases · all-MiniLM-L6-v2")
+    if st.button("Rebuild case library", use_container_width=True):
+        with st.spinner("Rebuilding index…"):
+            build_all()
+            st.cache_resource.clear()
+        st.success("Case library rebuilt.")
+        st.rerun()
 
-elif query.strip() == "" and st.session_state.get("_analyse_clicked"):
-    st.warning("Please enter a business problem description.")
+st.markdown('<div class="hero"><div class="eyebrow">CASE-BASED REASONING</div><h1>Turn a complex problem<br><em>into a clear next move.</em></h1><p>Describe the business challenge. StrategyOS finds analogous cases, weighs their outcomes, and makes the reasoning visible.</p></div>', unsafe_allow_html=True)
+
+consult_tab, library_tab, analytics_tab = st.tabs(["Consultation", "Strategy library", "Analytics"])
+
+with consult_tab:
+    left, right = st.columns([1.65, .8])
+    with left:
+        st.markdown('<div class="eyebrow">01 / PROBLEM BRIEF</div>', unsafe_allow_html=True)
+        st.subheader("What are you solving?")
+        query = st.text_area(
+            "Business problem",
+            height=180,
+            label_visibility="collapsed",
+            placeholder="e.g. Our mid-sized SaaS company is seeing increasing churn among SMB customers due to aggressive pricing from newer competitors. We need to defend our position while exploring enterprise expansion…",
+        )
+    with right:
+        st.markdown('<div class="eyebrow">02 / CONTEXT</div>', unsafe_allow_html=True)
+        st.subheader("Refine the lens")
+        top_k = st.slider("Cases to retrieve", 1, 10, 5)
+        industry = st.selectbox("Industry", ["(any)"] + options["industries"])
+        company_size = st.selectbox("Company size", ["(any)"] + options["company_sizes"])
+        outcome = st.selectbox("Historical outcome", ["(any)"] + options["outcomes"])
+        strategy = st.selectbox("Strategy type", ["(any)"] + options["strategy_types"])
+
+    related_col, alternatives_col, ensemble_col = st.columns(3)
+    with related_col:
+        show_related = st.checkbox("Show related cases")
+    with alternatives_col:
+        show_alternatives = st.checkbox("Show alternatives")
+    with ensemble_col:
+        use_ensemble = st.checkbox("Use ensemble prediction", value=ensemble is not None)
+
+    analyze = st.button("Analyse problem  →", type="primary", use_container_width=True)
+    if analyze:
+        if len(query.strip()) < 10:
+            st.warning("Please provide at least 10 characters describing the problem.")
+        else:
+            started = time.perf_counter()
+            query_id = str(uuid.uuid4())
+            filters = FilterConfig(
+                industry=None if industry == "(any)" else industry,
+                company_size=None if company_size == "(any)" else company_size,
+                outcome=None if outcome == "(any)" else outcome,
+                strategy_type=None if strategy == "(any)" else strategy,
+            )
+            with st.spinner("Finding analogous cases and evaluating outcomes…"):
+                retrieved = retrieve_with_filters(query, index, cases, filters, top_k)
+                recommendation = predict_ensemble(retrieved, ensemble) if use_ensemble and ensemble else predict(retrieved)
+                features = {k: v for k, v in {"industry": filters.industry, "company_size": filters.company_size}.items() if v}
+                explanation = explain(query, features, retrieved, recommendation)
+                log_query(query_id, query, retrieved, recommendation, filters.industry, filters.company_size, top_k)
+            elapsed = round((time.perf_counter() - started) * 1000)
+            st.session_state["analysis"] = {
+                "query_id": query_id, "query": query, "retrieved": retrieved,
+                "recommendation": recommendation, "explanation": explanation,
+                "elapsed": elapsed, "filters": filters,
+                "show_related": show_related, "show_alternatives": show_alternatives,
+                "index": index, "cases": cases,
+            }
+
+    analysis = st.session_state.get("analysis")
+    if analysis:
+        retrieved = analysis["retrieved"]
+        rec = analysis["recommendation"]
+        expl = analysis["explanation"]
+        st.markdown("---")
+        st.markdown('<div class="eyebrow">03 / RECOMMENDATION</div>', unsafe_allow_html=True)
+        st.subheader("Your evidence-backed direction")
+        rec_left, rec_right = st.columns([1.7, .7])
+        with rec_left:
+            st.markdown(f'<div class="card recommendation"><div class="eyebrow">RECOMMENDED STRATEGY</div><h2>{rec.recommended_strategy}</h2><p class="muted">{rec.supporting_rationale}</p></div>', unsafe_allow_html=True)
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Predicted outcome", rec.predicted_outcome, f"{rec.outcome_confidence:.0%} confidence")
+            m2.metric("Estimated ROI", f"{rec.estimated_roi_low}x – {rec.estimated_roi_high}x")
+            m3.metric("Time to result", f"{rec.avg_time_to_result_months:.0f} months")
+        with rec_right:
+            gauge = go.Figure(go.Indicator(mode="gauge+number", value=rec.strategy_confidence * 100, title={"text": "Strategy confidence"}, gauge={"axis": {"range": [0, 100]}, "bar": {"color": "#0f9f78"}, "steps": [{"range": [0, 40], "color": "#fbe7e5"}, {"range": [40, 70], "color": "#fdf1d8"}, {"range": [70, 100], "color": "#e5f6ed"}]}))
+            gauge.update_layout(height=230, margin=dict(t=35, b=10, l=20, r=20))
+            st.plotly_chart(gauge, use_container_width=True, config={"displayModeBar": False})
+        st.caption(f"{len(retrieved)} cases · {analysis['elapsed']}ms")
+
+        st.markdown('<div class="card"><div class="eyebrow">EVIDENCE MAP</div><h3>Why these cases surfaced</h3></div>', unsafe_allow_html=True)
+        sim_df = pd.DataFrame({"Case": [c.title for c, _ in retrieved], "Similarity": [round(score * 100, 1) for _, score in retrieved]})
+        fig = go.Figure(go.Bar(x=sim_df["Similarity"], y=sim_df["Case"], orientation="h", marker_color="#0f9f78", text=sim_df["Similarity"].map(lambda x: f"{x}%"), textposition="auto"))
+        fig.update_layout(height=max(220, 55 * len(retrieved)), margin=dict(l=10, r=20, t=10, b=20), yaxis={"autorange": "reversed"}, xaxis_title="Similarity")
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        st.markdown('<div class="eyebrow">HISTORICAL EVIDENCE</div>', unsafe_allow_html=True)
+        st.subheader("Similar cases")
+        for i, (case, score) in enumerate(retrieved):
+            with st.expander(f"{i + 1:02d}  {case.title} · {case.industry} · {case.year} · {score:.1%} similar", expanded=i == 0):
+                a, b, c = st.columns(3)
+                a.metric("Strategy", case.strategy_type)
+                b.metric("ROI", f"{case.outcome_metrics.roi_estimate}x")
+                c.metric("Outcome", case.outcome)
+                st.markdown(f"**Problem**  \n{case.problem_description}")
+                st.markdown(f"**Actions taken**  \n{case.actions_taken}")
+                st.markdown(f"**Outcome**  \n{case.outcome_description}")
+                case_expl = expl.case_explanations[i]
+                if case_expl.key_overlap_phrases:
+                    st.caption("Shared concepts: " + ", ".join(case_expl.key_overlap_phrases))
+                if case_expl.shared_features:
+                    st.caption("Matching context: " + ", ".join(f"{k}={v}" for k, v in case_expl.shared_features.items()))
+
+        if analysis["show_related"] and retrieved:
+            st.subheader("Related cases")
+            for case, score in retrieve_related_cases(retrieved[0][0].case_id, cases, index, top_k=3):
+                st.markdown(f"- **{case.title}** — {case.strategy_type} · {score:.1%} similar · ROI {case.outcome_metrics.roi_estimate}x")
+        if analysis["show_alternatives"]:
+            st.subheader("Alternative strategies that also worked")
+            for case, _ in retrieve_counter_examples(rec.recommended_strategy, cases, index, top_k=3):
+                st.markdown(f"- **{case.title}** — {case.strategy_type} · ROI {case.outcome_metrics.roi_estimate}x")
+
+        st.markdown("---")
+        st.subheader("Close the loop")
+        rating = st.radio("Was this direction useful?", [1, 2, 3, 4, 5], horizontal=True, key=f"rating_{analysis['query_id']}")
+        if st.button("Submit feedback", key=f"feedback_{analysis['query_id']}"):
+            store_feedback(analysis["query_id"], rating, rating >= 4)
+            st.success("Thanks — your feedback was saved.")
+        with st.expander("Methodology and limitations"):
+            st.write(expl.methodology_note)
+    else:
+        st.info("Start with a clear problem brief. The recommendation and evidence map will appear here.")
+
+with library_tab:
+    st.markdown('<div class="eyebrow">CASE LIBRARY</div>', unsafe_allow_html=True)
+    st.header("Compare strategy patterns")
+    stats = []
+    for strategy_name in options["strategy_types"]:
+        group = [c for c in cases if c.strategy_type == strategy_name]
+        positive = sum(c.outcome == "Positive" for c in group)
+        stats.append({"Strategy": strategy_name, "Cases": len(group), "Success rate": positive / len(group), "Avg ROI": sum(c.outcome_metrics.roi_estimate for c in group) / len(group), "Avg timeline": sum(c.outcome_metrics.time_to_result_months for c in group) / len(group), "Positive": positive, "Mixed": sum(c.outcome == "Mixed" for c in group), "Negative": sum(c.outcome == "Negative" for c in group)})
+    library_df = pd.DataFrame(stats).sort_values("Success rate", ascending=False)
+    st.dataframe(library_df.style.format({"Success rate": "{:.0%}", "Avg ROI": "{:.1f}x", "Avg timeline": "{:.0f} mo"}), use_container_width=True, hide_index=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.plotly_chart(go.Figure(go.Bar(x=library_df["Strategy"], y=library_df["Success rate"] * 100, marker_color="#0f9f78"), layout={"title": "Success rate by strategy", "yaxis_title": "%", "xaxis_tickangle": -35}), use_container_width=True, config={"displayModeBar": False})
+    with col2:
+        st.plotly_chart(go.Figure(go.Bar(x=library_df["Strategy"], y=library_df["Avg ROI"], marker_color="#d7a54a"), layout={"title": "Average ROI by strategy", "yaxis_title": "Multiplier", "xaxis_tickangle": -35}), use_container_width=True, config={"displayModeBar": False})
+
+with analytics_tab:
+    st.markdown('<div class="eyebrow">LOCAL TELEMETRY</div>', unsafe_allow_html=True)
+    st.header("Workspace analytics")
+    stats = get_analytics_stats()
+    a, b, c, d = st.columns(4)
+    a.metric("Total consultations", stats["total_queries"])
+    b.metric("Average confidence", f'{stats["avg_confidence"]:.0%}')
+    c.metric("Feedback received", stats["feedback_count"])
+    d.metric("Average rating", f'{stats["avg_rating"]:.1f}/5' if stats["feedback_count"] else "—")
+    if stats["top_strategies"]:
+        st.subheader("Recommendation mix")
+        st.bar_chart(pd.DataFrame(stats["top_strategies"], columns=["Strategy", "Count"]).set_index("Strategy"))
+        st.subheader("Industry distribution")
+        if stats["industry_distribution"]:
+            st.dataframe(pd.DataFrame(list(stats["industry_distribution"].items()), columns=["Industry", "Queries"]), use_container_width=True, hide_index=True)
+    else:
+        st.info("Run your first consultation to build the analytics view.")
+
+st.caption(f"StrategyOS v2.0 · {len(cases)} cases loaded · local case-based reasoning")
